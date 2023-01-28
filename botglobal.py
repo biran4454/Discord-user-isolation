@@ -136,6 +136,9 @@ class IsolatedInformation(discord.ui.View):
         super().__init__()
     @discord.ui.button(label="Appeal", style=discord.ButtonStyle.blurple)
     async def appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != int(interaction.channel.name.split("-")[1]):
+            await interaction.channel.send("You can't appeal in someone else's channel", ephemeral=True)
+            return
         verificationChannel = findVerificationChannel(interaction.channel.guild)
         if verificationChannel is None:
             await interaction.channel.send("There is no verification channel set up for this server")
