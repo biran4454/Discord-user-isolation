@@ -3,6 +3,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import openai
+from dotenv import load_dotenv
+
+load_dotenv()
 TOKEN = os.getenv("DiscordIsolationToken")
 
 openai.api_key = os.getenv("OpenAIKey")
