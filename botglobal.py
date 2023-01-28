@@ -27,6 +27,7 @@ class Bot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(command_prefix="iso ", intents=intents)
+        self.remove_command("help")
     async def syncSlashes(self) -> None:
         await self.tree.sync()
         print("Synced slash commands")
@@ -184,11 +185,6 @@ async def sync(ctx):
         return
     await bot.syncSlashes()
     await ctx.reply("Synced slash commands")
-
-@bot.command(name="ping", description="Ping the bot")
-async def ping(ctx):
-    print("received ping")
-    await ctx.reply("pong")
 
 def findIsolatedChannels(guild: discord.Guild):
     secureChannels = []
@@ -396,19 +392,34 @@ async def disableAI(ctx: commands.Context):
         return
     await ctx.send("Disabled AI", ephemeral=True)
 
+@bot.hybrid_command(name="ping", description="Get the bot's latency")
+async def ping(ctx: commands.Context):
+    await ctx.send(f"Pong! {round(bot.latency * 1000)}ms")
+
+@bot.hybrid_command(name="info", description="Get info about the bot")
+async def info(ctx: commands.Context):
+    await ctx.send("Isolation bot - an open source bot for isolating users from your server. Built on discord.py by @Biran4454#7467.\n Source code available at https://github.com/biran4454/Discord-user-isolation. \nInvite link: https://discord.com/api/oauth2/authorize?client_id=1068604461368483840&permissions=268520464&scope=bot")
+
+@bot.hybrid_command(name="invite", description="Get the bot's invite link")
+async def invite(ctx: commands.Context):
+    await ctx.send("Invite link: https://discord.com/api/oauth2/authorize?client_id=1068604461368483840&permissions=268520464&scope=bot")
+
 @bot.hybrid_command(name="help", description="Get help with the bot")
 async def help(ctx: commands.Context):
     await ctx.send("""
-    Documentation:\n
-    Use the prefix `iso`, or use discord slash commands.\n
-    `/isolate <user>` - Isolate a user from the server\n
-    `/unisolate <user>` - Remove a user from isolation\n
-    `/block-isolated <user>` - Block a user from sending messages in their isolated channel\n
-    `/unblock-isolated <user>` - Unblock a user from sending messages in their isolated channel\n
-    `/lockdown-isolated` - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user\n
-    `/enable-ai` - Enable AI for this server\n
-    `/disable-ai` - Disable AI for this server\n
+    Documentation:
+    Use the prefix `iso`, or use discord slash commands.
+    `/isolate <user>` - Isolate a user from the server
+    `/unisolate <user>` - Remove a user from isolation
+    `/block-isolated <user>` - Block a user from sending messages in their isolated channel
+    `/unblock-isolated <user>` - Unblock a user from sending messages in their isolated channel
+    `/lockdown-isolated` - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user
+    `/enable-ai` - Enable AI for this server
+    `/disable-ai` - Disable AI for this server
     `/help` - Show this message
+    `/ping` - Get the bot's latency
     """)
+
+
 
 bot.run(TOKEN)
