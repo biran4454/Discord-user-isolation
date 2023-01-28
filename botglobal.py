@@ -26,12 +26,14 @@ class Bot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="iso", intents=intents)
     async def syncSlashes(self) -> None:
         await self.tree.sync()
         print("Synced slash commands")
     async def on_ready(self):
         print(f"{self.user} has connected")
+    async def on_guild_join(self, guild: discord.Guild):
+        print(f"Joined guild {guild.name} with id {guild.id}")
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):
             # only reply if the channel still exists
@@ -43,7 +45,9 @@ class Bot(commands.Bot):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        if message.content.startswith("!") and message.content != "!":
+        # check if author is a different bot
+
+        if message.content.startswith("iso") and message.content != "iso":
             # won't run command if author is in an isolated channel
             if (message.channel.id in findIsolatedChannels(message.guild) or message.channel.name == "isolated-" + str(message.author.id)) and not message.author.guild_permissions.manage_messages:
                 await message.channel.send("You can't use commands in an isolated channel")
@@ -62,7 +66,7 @@ class Bot(commands.Bot):
             for cnnl in secureChannels:
                 await message.guild.get_channel(cnnl).send(embed=embed)
         else:
-            if message.content.startswith("!"):
+            if message.content.startswith("iso"):
                 await message.channel.send("You can't use commands in an isolated channel")
                 return
             if message.author.guild_permissions.manage_messages:
@@ -137,7 +141,7 @@ class IsolatedInformation(discord.ui.View):
     @discord.ui.button(label="Appeal", style=discord.ButtonStyle.blurple)
     async def appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != int(interaction.channel.name.split("-")[1]):
-            await interaction.channel.send("You can't appeal in someone else's channel", ephemeral=True)
+            await interaction.response.send_message("You can't appeal in someone else's channel", ephemeral=True)
             return
         verificationChannel = findVerificationChannel(interaction.channel.guild)
         if verificationChannel is None:
