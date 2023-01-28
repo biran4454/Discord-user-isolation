@@ -26,7 +26,7 @@ class Bot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix="iso", intents=intents)
+        super().__init__(command_prefix="iso ", intents=intents)
     async def syncSlashes(self) -> None:
         await self.tree.sync()
         print("Synced slash commands")
@@ -47,7 +47,7 @@ class Bot(commands.Bot):
             return
         # check if author is a different bot
 
-        if message.content.startswith("iso") and message.content != "iso":
+        if message.content.startswith("iso ") and message.content != "iso ":
             # won't run command if author is in an isolated channel
             if (message.channel.id in findIsolatedChannels(message.guild) or message.channel.name == "isolated-" + str(message.author.id)) and not message.author.guild_permissions.manage_messages:
                 await message.channel.send("You can't use commands in an isolated channel")
@@ -66,7 +66,7 @@ class Bot(commands.Bot):
             for cnnl in secureChannels:
                 await message.guild.get_channel(cnnl).send(embed=embed)
         else:
-            if message.content.startswith("iso"):
+            if message.content.startswith("iso "):
                 await message.channel.send("You can't use commands in an isolated channel")
                 return
             if message.author.guild_permissions.manage_messages:
@@ -396,5 +396,19 @@ async def disableAI(ctx: commands.Context):
         return
     await ctx.send("Disabled AI", ephemeral=True)
 
+@bot.hybrid_command(name="help", description="Get help with the bot")
+async def help(ctx: commands.Context):
+    await ctx.send("""
+    Documentation:\n
+    Use the prefix `iso`, or use discord slash commands.\n
+    `/isolate <user>` - Isolate a user from the server\n
+    `/unisolate <user>` - Remove a user from isolation\n
+    `/block-isolated <user>` - Block a user from sending messages in their isolated channel\n
+    `/unblock-isolated <user>` - Unblock a user from sending messages in their isolated channel\n
+    `/lockdown-isolated` - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user\n
+    `/enable-ai` - Enable AI for this server\n
+    `/disable-ai` - Disable AI for this server\n
+    `/help` - Show this message
+    """)
 
 bot.run(TOKEN)
