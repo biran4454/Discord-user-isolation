@@ -214,7 +214,7 @@ async def setup(ctx: commands.Context):
         ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
         ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
     await ctx.guild.create_role(name="isolated", permissions=discord.Permissions(view_channel=False))
-    await ctx.reply("Set up isolation catagory and verification channel")
+    await ctx.reply("Set up isolation category and verification channel")
 
 # cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
 @bot.hybrid_command(name="setup_role", description="Prevent isolated users from viewing channels")
@@ -232,8 +232,8 @@ async def setupRole(ctx: commands.Context):
 async def isolateMember(ctx: commands.Context, member: discord.Member):
     isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
     await member.add_roles(isolatedRole)
-    isolationCatagory = discord.utils.get(ctx.guild.categories, name="Isolated")
-    await ctx.guild.create_text_channel(f"isolated-{member.id}", category=isolationCatagory, overwrites={
+    isolationcategory = discord.utils.get(ctx.guild.categories, name="Isolated")
+    await ctx.guild.create_text_channel(f"isolated-{member.id}", category=isolationcategory, overwrites={
         ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
         ctx.guild.me: discord.PermissionOverwrite(view_channel=True),
         member: discord.PermissionOverwrite(view_channel=True)}, slowmode_delay=15)
