@@ -208,9 +208,11 @@ def findGeneralChannel(guild: discord.Guild):
 @commands.has_permissions(administrator=True)
 async def setup(ctx: commands.Context):
     await ctx.guild.create_text_channel("verify-isolation", overwrites={
-        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False)})
+        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
     await ctx.guild.create_category("Isolated", overwrites={
-        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False)})
+        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
     await ctx.guild.create_role(name="isolated", permissions=discord.Permissions(view_channel=False))
     await ctx.reply("Set up isolation catagory and verification channel")
 
@@ -233,7 +235,8 @@ async def isolateMember(ctx: commands.Context, member: discord.Member):
     isolationCatagory = discord.utils.get(ctx.guild.categories, name="Isolated")
     await ctx.guild.create_text_channel(f"isolated-{member.id}", category=isolationCatagory, overwrites={
         ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        member: discord.PermissionOverwrite(view_channel=True)}, slowmode_delay=5)
+        ctx.guild.me: discord.PermissionOverwrite(view_channel=True),
+        member: discord.PermissionOverwrite(view_channel=True)}, slowmode_delay=15)
     for channel in ctx.guild.channels:
         if channel.name == f"isolated-{member.id}":
             await channel.send(f"{member.mention} You have been isolated. You can see messages, but all messages you send will be verified by a staff member. If you abuse this, you will be blocked from sending messages.\n\nIf you believe this is a mistake, please appeal by clicking the button below.", view=IsolatedInformation())
