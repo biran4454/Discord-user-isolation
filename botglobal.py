@@ -67,7 +67,10 @@ class Bot(commands.Bot):
                 return
             if message.author.guild_permissions.manage_messages:
                 return
-            readGuildsWithAI()
+            try:
+                readGuildsWithAI()
+            except:
+                pass
             if message.guild.id in guildsWithAI:
                 response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it appropriate for general audiences (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
                 if "Y" in response.choices[0].text:
@@ -207,14 +210,24 @@ def findGeneralChannel(guild: discord.Guild):
 @bot.hybrid_command(name="setup", description="Set up the channels, roles, and categories for isolation")
 @commands.has_permissions(administrator=True)
 async def setup(ctx: commands.Context):
-    await ctx.guild.create_text_channel("verify-isolation", overwrites={
-        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
-    await ctx.guild.create_category("Isolated", overwrites={
-        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
-    await ctx.guild.create_role(name="isolated", permissions=discord.Permissions(view_channel=False))
-    await ctx.reply("Set up isolation category and verification channel")
+    completed = False
+    if findVerificationChannel(ctx.guild) is None:
+        await ctx.guild.create_text_channel("verify-isolation", overwrites={
+            ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
+        completed = True
+    if discord.utils.get(ctx.guild.categories, name="Isolated") is None:
+        await ctx.guild.create_category("Isolated", overwrites={
+            ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
+        completed = True
+    if discord.utils.get(ctx.guild.roles, name="isolated") is None:
+        await ctx.guild.create_role(name="isolated", permissions=discord.Permissions(view_channel=False))
+        completed = True
+    if completed:
+        await ctx.reply("Set up isolation category and verification channel")
+    else:
+        await ctx.reply("Isolation category and verification channel already set up")
 
 # cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
 @bot.hybrid_command(name="setup_role", description="Prevent isolated users from viewing channels")
@@ -227,9 +240,38 @@ async def setupRole(ctx: commands.Context):
         await channel.set_permissions(isolatedRole, view_channel=False)
     await ctx.reply("Set up isolated role")
 
+async def isOk(ctx: commands.Context, member: discord.Member):
+    if member.guild_permissions.manage_messages:
+        await ctx.send("You can't isolate a moderator", ephemeral=True)
+        return False
+    if member.guild_permissions.administrator:
+        await ctx.send("You can't isolate an administrator", ephemeral=True)
+        return False
+    if member.id == ctx.guild.owner_id:
+        await ctx.send("You can't isolate the server owner", ephemeral=True)
+        return False
+    if findUsersIsolatedChannel(ctx.guild, member) is not None:
+        await ctx.send("This user is already isolated", ephemeral=True)
+        return False
+    if findVerificationChannel(ctx.guild) is None:
+        await ctx.send("Verification channel not set up", ephemeral=True)
+        return False
+    if discord.utils.get(ctx.guild.categories, name="Isolated") is None:
+        await ctx.send("Isolated category not set up", ephemeral=True)
+        return False
+    if discord.utils.get(ctx.guild.roles, name="isolated") is None:
+        await ctx.send("Isolated role not set up", ephemeral=True)
+        return False
+    if findGeneralChannel(ctx.guild) is None:
+        await ctx.send("General channel not set up", ephemeral=True)
+        return False
+    return True
+
 @bot.hybrid_command(name="isolate", description="Select a member to isolate")
 @commands.has_permissions(administrator=True)
 async def isolateMember(ctx: commands.Context, member: discord.Member):
+    if not await isOk(ctx, member):
+        return
     isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
     await member.add_roles(isolatedRole)
     isolationcategory = discord.utils.get(ctx.guild.categories, name="Isolated")
@@ -245,6 +287,9 @@ async def isolateMember(ctx: commands.Context, member: discord.Member):
 @bot.hybrid_command(name="unisolate", description="Remove a member from isolation, and delete their channel")
 @commands.has_permissions(administrator=True)
 async def unisolateMember(ctx: commands.Context, member: discord.Member):
+    if findUsersIsolatedChannel(ctx.guild, member) is None:
+        await ctx.send("User is not isolated", ephemeral=True)
+        return
     isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
     await member.remove_roles(isolatedRole)
     for channel in ctx.guild.channels:
@@ -279,42 +324,69 @@ async def unblockUser(ctx: commands.Context, member: discord.Member):
 @bot.hybrid_command(name="lockdown-isolated", description="Lock down all isolated channels")
 @commands.has_permissions(administrator=True)
 async def lockdownIsolated(ctx: commands.Context):
+    if discord.utils.get(ctx.guild.roles, name="isolated") is None:
+        await ctx.send("Isolated role not set up", ephemeral=True)
+        return
+    if discord.utils.get(ctx.guild.categories, name="Isolated") is None:
+        await ctx.send("Isolated category not set up", ephemeral=True)
+        return
+    completedChannels = 0
     failedChannels = 0
     for channel in ctx.guild.channels:
         if channel.name.startswith("isolated-"):
             try:
                 isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
                 await channel.set_permissions(isolatedRole, send_messages=False, read_messages=True)
+                completedChannels += 1
             except:
                 failedChannels += 1
     if failedChannels > 0:
         await ctx.send(f"Attempted to lock down isolated channels, but {failedChannels} channel{'s' if failedChannels > 1 else ''} failed to lock down")
         return
-    await ctx.send("Locked down all isolated channels")
+    if completedChannels == 0 and failedChannels == 0:
+        await ctx.send("No isolated channels found", ephemeral=True)
+        return
+    await ctx.send(f"Locked down {completedChannels} channel{'s' if completedChannels > 1 else ''}")
 
 # enable / disable ai for a guild
 @bot.hybrid_command(name="enable-ai", description="Enable AI for this server")
 @app_commands.checks.cooldown(1, 5, key=lambda i: i.guild.id)
 @commands.has_permissions(administrator=True)
 async def enableAI(ctx: commands.Context):
-    readGuildsWithAI()
+    try:
+        readGuildsWithAI()
+    except:
+        await ctx.send("Error getting AI status", ephemeral=True)
+        return
     if ctx.guild.id in guildsWithAI:
         await ctx.send("AI is already enabled", ephemeral=True)
         return
     guildsWithAI.append(ctx.guild.id)
-    saveGuildsWithAI()
+    try:
+        saveGuildsWithAI()
+    except:
+        await ctx.send("Error saving AI status", ephemeral=True)
+        return
     await ctx.send("Enabled AI", ephemeral=True)
 
 @bot.hybrid_command(name="disable-ai", description="Disable AI for this server")
 @app_commands.checks.cooldown(1, 5, key=lambda i: i.guild.id)
 @commands.has_permissions(administrator=True)
 async def disableAI(ctx: commands.Context):
-    readGuildsWithAI()
+    try:
+        readGuildsWithAI()
+    except:
+        await ctx.send("Error getting AI status", ephemeral=True)
+        return
     if ctx.guild.id not in guildsWithAI:
         await ctx.send("AI is already disabled", ephemeral=True)
         return
     guildsWithAI.remove(ctx.guild.id)
-    saveGuildsWithAI()
+    try:
+        saveGuildsWithAI()
+    except:
+        await ctx.send("Error saving AI status", ephemeral=True)
+        return
     await ctx.send("Disabled AI", ephemeral=True)
 
 
