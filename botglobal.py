@@ -271,7 +271,7 @@ async def isOk(ctx: commands.Context, member: discord.Member):
     return True
 
 @bot.hybrid_command(name="isolate", description="Select a member to isolate")
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(moderate_members=True)
 async def isolateMember(ctx: commands.Context, member: discord.Member):
     if not await isOk(ctx, member):
         return
@@ -288,7 +288,7 @@ async def isolateMember(ctx: commands.Context, member: discord.Member):
     await ctx.send("Isolated member")
 
 @bot.hybrid_command(name="unisolate", description="Remove a member from isolation, and delete their channel")
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(moderate_members=True)
 async def unisolateMember(ctx: commands.Context, member: discord.Member):
     if findUsersIsolatedChannel(ctx.guild, member) is None:
         await ctx.send("User is not isolated", ephemeral=True)
@@ -302,7 +302,7 @@ async def unisolateMember(ctx: commands.Context, member: discord.Member):
 
 # manually block / unblock a user
 @bot.hybrid_command(name="block-isolated", description="Block an isolated user from sending messages")
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(moderate_members=True)
 async def blockUser(ctx: commands.Context, member: discord.Member):
     channel = findUsersIsolatedChannel(ctx.guild, member)
     if channel is None:
@@ -313,7 +313,7 @@ async def blockUser(ctx: commands.Context, member: discord.Member):
     await ctx.send("Blocked user")
 
 @bot.hybrid_command(name="unblock-isolated", description="Unblock an isolated user from sending messages")
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(moderate_members=True)
 async def unblockUser(ctx: commands.Context, member: discord.Member):
     channel = findUsersIsolatedChannel(ctx.guild, member)
     if channel is None:
