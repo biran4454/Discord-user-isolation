@@ -15,12 +15,14 @@ guildsWithAI = []
 def saveGuildsWithAI():
     with open("guildsWithAI.txt", "w") as f:
         for guild in guildsWithAI:
-            f.write(f"{guild}")
+            f.write(str(guild) + "\n")
 
 def readGuildsWithAI():
+    guildsWithAI = []
     with open("guildsWithAI.txt", "r") as f:
         for line in f:
-            guildsWithAI.append(int(line))
+            if line != "\n" and line != " " and line != "" and int(line) not in guildsWithAI:
+                guildsWithAI.append(int(line))
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -76,7 +78,24 @@ class Bot(commands.Bot):
             except:
                 pass
             if message.guild.id in guildsWithAI:
-                response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it appropriate for general audiences (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
+                try:
+                    response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it appropriate for general audiences (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
+                except openai.error.AuthenticationError:
+                    print("OpenAI API key is invalid")
+                    verificationChannel = findVerificationChannel(message.guild)
+                    if verificationChannel is not None:
+                        await message.guild.get_channel(verificationChannel).send("OpenAI API key is invalid. Please contact @Biran4454#7467. Defaulting to manual verification")
+                        embed = IsolationMessageEmbed(message, True)
+                        await message.guild.get_channel(verificationChannel).send(f"{message.author.name}: {message.content}", view=VerificationMessage(message, embed))
+                    return
+                except:
+                    print("OpenAI API error")
+                    verificationChannel = findVerificationChannel(message.guild)
+                    if verificationChannel is not None:
+                        await message.guild.get_channel(verificationChannel).send("OpenAI API error. Please contact @Biran4454#7467. Defaulting to manual verification")
+                        embed = IsolationMessageEmbed(message, True)
+                        await message.guild.get_channel(verificationChannel).send(f"{message.author.name}: {message.content}", view=VerificationMessage(message, embed))
+                    return
                 if "Y" in response.choices[0].text:
                     embed = IsolationMessageEmbed(message, True)
                     generalChannel = findGeneralChannel(message.guild)
@@ -209,6 +228,15 @@ def findGeneralChannel(guild: discord.Guild):
         if channel.name.startswith("general"):
             return channel.id
 
+# command to destroy openai api key
+@bot.command(name="destroy", description="Destroy the openai api key")
+async def destroy(ctx):
+    if ctx.author.id != 621395819131568158:
+        await ctx.reply("You don't have permission to use this command")
+        return
+    openai.api_key = None
+    await ctx.reply("Destroyed openai api key")
+
 @bot.hybrid_command(name="setup", description="Set up the channels, roles, and categories for isolation")
 @commands.has_permissions(administrator=True)
 async def setup(ctx: commands.Context):
@@ -243,14 +271,20 @@ async def setupRole(ctx: commands.Context):
     await ctx.reply("Set up isolated role")
 
 async def isOk(ctx: commands.Context, member: discord.Member):
-    if member.guild_permissions.manage_messages:
-        await ctx.send("You can't isolate a moderator", ephemeral=True)
+    if member.id == ctx.author.id:
+        await ctx.send("You can't isolate yourself", ephemeral=True)
+        return False
+    if member.id == bot.user.id:
+        await ctx.send("You can't isolate me", ephemeral=True)
+        return False
+    if member.id == ctx.guild.owner_id:
+        await ctx.send("You can't isolate the server owner", ephemeral=True)
         return False
     if member.guild_permissions.administrator:
         await ctx.send("You can't isolate an administrator", ephemeral=True)
         return False
-    if member.id == ctx.guild.owner_id:
-        await ctx.send("You can't isolate the server owner", ephemeral=True)
+    if member.guild_permissions.manage_messages:
+        await ctx.send("You can't isolate a moderator", ephemeral=True)
         return False
     if findUsersIsolatedChannel(ctx.guild, member) is not None:
         await ctx.send("This user is already isolated", ephemeral=True)
