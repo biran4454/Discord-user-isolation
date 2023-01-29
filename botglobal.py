@@ -409,15 +409,18 @@ async def help(ctx: commands.Context):
     await ctx.send("""
     Documentation:
     Use the prefix `iso`, or use discord slash commands.
-    `/isolate <user>` - Isolate a user from the server
-    `/unisolate <user>` - Remove a user from isolation
-    `/block-isolated <user>` - Block a user from sending messages in their isolated channel
-    `/unblock-isolated <user>` - Unblock a user from sending messages in their isolated channel
-    `/lockdown-isolated` - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user
-    `/enable-ai` - Enable AI for this server
-    `/disable-ai` - Disable AI for this server
-    `/help` - Show this message
+    Key: [permission] - Permission required to use the command
+    `/isolate <user>` [timeout] - Isolate a user from the server
+    `/unisolate <user>` [timeout] - Remove a user from isolation
+    `/block-isolated <user>` [timeout]  - Block a user from sending messages in their isolated channel
+    `/unblock-isolated <user>` [timeout] - Unblock a user from sending messages in their isolated channel
+    `/lockdown-isolated` [administrator] - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user
+    `/enable-ai` [administrator] - Enable AI for this server
+    `/disable-ai` [administrator] - Disable AI for this server
     `/ping` - Get the bot's latency
+    `/info` - Get info about the bot
+    `/invite` - Get the bot's invite link
+    `/help` - Show this message
     """)
 
 
