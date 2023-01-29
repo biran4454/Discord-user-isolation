@@ -46,7 +46,6 @@ class Bot(commands.Bot):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        # check if author is a different bot
 
         if message.content.startswith("iso ") and message.content != "iso ":
             # won't run command if author is in an isolated channel
@@ -62,7 +61,7 @@ class Bot(commands.Bot):
                 await message.guild.get_channel(cnnl).send(embed=embed)
             return
         if message.channel.id not in secureChannels:
-            return # add option to allow messages from other channels
+            return
             embed = IsolationMessageEmbed(message)
             for cnnl in secureChannels:
                 await message.guild.get_channel(cnnl).send(embed=embed)
