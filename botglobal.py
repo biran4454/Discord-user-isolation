@@ -263,7 +263,11 @@ async def setup(ctx: commands.Context):
 @bot.hybrid_command(name="setup_role", description="Prevent isolated users from viewing channels")
 @commands.has_permissions(administrator=True)
 async def setupRole(ctx: commands.Context):
-    isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
+    try:
+        isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
+    except:
+        await ctx.reply("Isolated role not found, please run /setup first!")
+        return
     for channel in ctx.guild.channels:
         if channel.name.startswith("isolated-"):
             continue
