@@ -30,8 +30,8 @@ class Bot(commands.Bot):
         intents.message_content = True
         super().__init__(command_prefix="iso ", intents=intents)
         self.remove_command("help")
-    async def syncSlashes(self) -> None:
-        await self.tree.sync()
+    async def sync_slashes(self) -> None:
+        await self.application_commands.sync()
         print("Synced slash commands")
     async def on_ready(self):
         print(f"{self.user} has connected")
