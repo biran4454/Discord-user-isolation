@@ -98,7 +98,7 @@ class Bot(commands.Bot):
                     return
                 if "Y" in response.choices[0].text:
                     embed = IsolationMessageEmbed(message, True)
-                    generalChannel = findGeneralChannel(message.guild)
+                    generalChannel = getGeneralChannel(message.guild)
                     await message.guild.get_channel(generalChannel).send(embed=embed)
                 else:
                     await message.channel.send("Your message has been automatically denied.")
@@ -125,7 +125,7 @@ class VerificationMessage(discord.ui.View):
         await interaction.response.edit_message(view=self)
     @discord.ui.button(label="Accept", style=discord.ButtonStyle.blurple)
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
-        generalChannel = findGeneralChannel(self.message.guild)
+        generalChannel = getGeneralChannel(self.message.guild)
         await self.message.guild.get_channel(generalChannel).send(embed=self.messageEmbed)
         button.style = discord.ButtonStyle.success
         button.label = "Accepted"
@@ -227,6 +227,19 @@ def findGeneralChannel(guild: discord.Guild):
     for channel in guild.channels:
         if channel.name.startswith("general"):
             return channel.id
+    return None
+
+def getGeneralChannel(guild: discord.Guild):
+    # general.txt layout: guild id, general channel id
+    with open("general.txt", "r") as f:
+        for line in f:
+            if line.startswith(str(guild.id)):
+                return guild.get_channel(int(line.split(",")[1]))
+    generalChannel = getGeneralChannel(guild)
+    if generalChannel is None:
+        print("No general channel found")
+        return None
+    return guild.get_channel(generalChannel)
 
 # command to destroy openai api key
 @bot.command(name="destroy", description="Destroy the openai api key")
@@ -258,6 +271,24 @@ async def setup(ctx: commands.Context):
         await ctx.reply("Set up isolation category and verification channel")
     else:
         await ctx.reply("Isolation category and verification channel already set up")
+
+# select which channel to use instead of general, stored in channels.txt
+@bot.hybrid_command(name="set_general", description="Set the general channel")
+@commands.has_permissions(administrator=True)
+async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
+    for line in open("channels.txt", "r").readlines():
+        if line.startswith(str(ctx.guild.id)):
+            with open("channels.txt", "r") as f:
+                lines = f.readlines()
+            with open("channels.txt", "w") as f:
+                for line in lines:
+                    if line.startswith(str(ctx.guild.id)):
+                        continue
+                    f.write(line)
+            break
+    with open("channels.txt", "a") as f:
+        f.write(ctx.guild.id + "," + str(channel.id))
+    await ctx.reply("Set general channel to " + channel.name)
 
 # cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
 @bot.hybrid_command(name="setup_role", description="Prevent isolated users from viewing channels")
@@ -302,7 +333,7 @@ async def isOk(ctx: commands.Context, member: discord.Member):
     if discord.utils.get(ctx.guild.roles, name="isolated") is None:
         await ctx.send("Isolated role not set up", ephemeral=True)
         return False
-    if findGeneralChannel(ctx.guild) is None:
+    if getGeneralChannel(ctx.guild) is None:
         await ctx.send("General channel not set up", ephemeral=True)
         return False
     return True
