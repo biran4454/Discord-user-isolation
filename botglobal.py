@@ -57,7 +57,7 @@ class Bot(commands.Bot):
             await self.process_commands(message)
             return
         secureChannels = findIsolatedChannels(message.guild)
-        if message.guild.get_channel(message.channel.id).name == "general":
+        if getGeneralChannel(message.guild) == message.channel.id:
             embed = IsolationMessageEmbed(message)
             for cnnl in secureChannels:
                 await message.guild.get_channel(cnnl).send(embed=embed)
@@ -79,7 +79,7 @@ class Bot(commands.Bot):
                 pass
             if message.guild.id in guildsWithAI:
                 try:
-                    response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it appropriate for general audiences (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
+                    response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it explicit or spam (or not appropriate) (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
                 except openai.error.AuthenticationError:
                     print("OpenAI API key is invalid")
                     verificationChannel = findVerificationChannel(message.guild)
@@ -96,7 +96,7 @@ class Bot(commands.Bot):
                         embed = IsolationMessageEmbed(message, True)
                         await message.guild.get_channel(verificationChannel).send(f"{message.author.name}: {message.content}", view=VerificationMessage(message, embed))
                     return
-                if "Y" in response.choices[0].text:
+                if "n" in response.choices[0].text.lower():
                     embed = IsolationMessageEmbed(message, True)
                     generalChannel = getGeneralChannel(message.guild)
                     await message.guild.get_channel(generalChannel).send(embed=embed)
@@ -234,12 +234,14 @@ def getGeneralChannel(guild: discord.Guild):
     with open("general.txt", "r") as f:
         for line in f:
             if line.startswith(str(guild.id)):
-                return guild.get_channel(int(line.split(",")[1]))
-    generalChannel = getGeneralChannel(guild)
+                print("Found general channel: " + line.split(",")[1] + " for guild " + str(guild.id))
+                return int(line.split(",")[1])
+    generalChannel = findGeneralChannel(guild)
+    print(f"General channel: {generalChannel}")
     if generalChannel is None:
         print("No general channel found")
         return None
-    return guild.get_channel(generalChannel)
+    return generalChannel
 
 # command to destroy openai api key
 @bot.command(name="destroy", description="Destroy the openai api key")
@@ -276,18 +278,18 @@ async def setup(ctx: commands.Context):
 @bot.hybrid_command(name="set_general", description="Set the general channel")
 @commands.has_permissions(administrator=True)
 async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
-    for line in open("channels.txt", "r").readlines():
+    for line in open("general.txt", "r").readlines():
         if line.startswith(str(ctx.guild.id)):
-            with open("channels.txt", "r") as f:
+            with open("general.txt", "r") as f:
                 lines = f.readlines()
-            with open("channels.txt", "w") as f:
+            with open("general.txt", "w") as f:
                 for line in lines:
                     if line.startswith(str(ctx.guild.id)):
                         continue
                     f.write(line)
             break
-    with open("channels.txt", "a") as f:
-        f.write(ctx.guild.id + "," + str(channel.id))
+    with open("general.txt", "a") as f:
+        f.write(str(ctx.guild.id) + "," + str(channel.id))
     await ctx.reply("Set general channel to " + channel.name)
 
 # cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
