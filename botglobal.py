@@ -31,7 +31,7 @@ class Bot(commands.Bot):
         super().__init__(command_prefix="iso ", intents=intents)
         self.remove_command("help")
     async def sync_slashes(self) -> None:
-        await self.application_commands.sync()
+        await self.tree.sync()
         print("Synced slash commands")
     async def on_ready(self):
         print(f"{self.user} has connected")
@@ -201,7 +201,7 @@ async def sync(ctx):
     if ctx.author.id != 621395819131568158:
         await ctx.reply("You don't have permission to use this command")
         return
-    await bot.syncSlashes()
+    await bot.sync_slashes()
     await ctx.reply("Synced slash commands")
 
 def findIsolatedChannels(guild: discord.Guild):
