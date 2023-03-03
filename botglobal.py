@@ -275,7 +275,7 @@ async def setup(ctx: commands.Context):
         await ctx.reply("Isolation category and verification channel already set up")
 
 # select which channel to use instead of general, stored in channels.txt
-@bot.hybrid_command(name="set_general", description="Set the general channel")
+@bot.hybrid_command(name="set-general", description="Set the general channel")
 @commands.has_permissions(administrator=True)
 async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
     for line in open("general.txt", "r").readlines():
@@ -487,6 +487,7 @@ async def help(ctx: commands.Context):
     `/lockdown-isolated` [administrator] - Block all isolated users from sending messages. Caution: to undo this, you must manually unblock each isolated user
     `/enable-ai` [administrator] - Enable AI for this server
     `/disable-ai` [administrator] - Disable AI for this server
+    `/set-general <channel>` [administrator] - Set the general channel used by the bot for this server (default #general)
     `/ping` - Get the bot's latency
     `/info` - Get info about the bot
     `/invite` - Get the bot's invite link
