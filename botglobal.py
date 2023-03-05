@@ -440,7 +440,7 @@ async def enableAI(ctx: commands.Context):
     except:
         await ctx.send("Error saving AI status", ephemeral=True)
         return
-    await ctx.send("Enabled AI", ephemeral=True)
+    await ctx.send("Enabled AI")
 
 @bot.hybrid_command(name="disable-ai", description="Disable AI for this server")
 @app_commands.checks.cooldown(1, 5, key=lambda i: i.guild.id)
@@ -460,7 +460,7 @@ async def disableAI(ctx: commands.Context):
     except:
         await ctx.send("Error saving AI status", ephemeral=True)
         return
-    await ctx.send("Disabled AI", ephemeral=True)
+    await ctx.send("Disabled AI")
 
 @bot.hybrid_command(name="ping", description="Get the bot's latency")
 async def ping(ctx: commands.Context):
