@@ -289,7 +289,7 @@ async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
                     f.write(line)
             break
     with open("general.txt", "a") as f:
-        f.write(str(ctx.guild.id) + "," + str(channel.id))
+        f.write(str(ctx.guild.id) + "," + str(channel.id) + "\n")
     await ctx.reply("Set general channel to " + channel.name)
 
 # cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
