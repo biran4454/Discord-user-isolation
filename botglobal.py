@@ -234,8 +234,8 @@ def getGeneralChannel(guild: discord.Guild):
     with open("general.txt", "r") as f:
         for line in f:
             if line.startswith(str(guild.id)):
-                print("Found general channel: " + line.split(",")[1] + " for guild " + str(guild.id))
-                return int(line.split(",")[1])
+                print("Found general channel: " + line.split(",")[1].strip() + " for guild " + str(guild.id))
+                return int(line.split(",")[1].strip())
     generalChannel = findGeneralChannel(guild)
     print(f"General channel: {generalChannel}")
     if generalChannel is None:
