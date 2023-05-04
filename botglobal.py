@@ -4,25 +4,13 @@ from discord.ext import commands
 from discord import app_commands
 import openai
 from dotenv import load_dotenv
+import filewriter
 
-load_dotenv()
-TOKEN = os.getenv("DiscordIsolationToken")
+keyPath = os.getenv("EnvPath")
+load_dotenv(dotenv_path=keyPath)
+TOKEN = os.getenv("DiscordIsolationTestingToken")
 
 openai.api_key = os.getenv("OpenAIKey")
-guildsWithAI = []
-
-# function to save / read the guildsWithAI list to a file
-def saveGuildsWithAI():
-    with open("guildsWithAI.txt", "w") as f:
-        for guild in guildsWithAI:
-            f.write(str(guild) + "\n")
-
-def readGuildsWithAI():
-    guildsWithAI = []
-    with open("guildsWithAI.txt", "r") as f:
-        for line in f:
-            if line != "\n" and line != " " and line != "" and int(line) not in guildsWithAI:
-                guildsWithAI.append(int(line))
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -73,11 +61,7 @@ class Bot(commands.Bot):
                 return
             if message.author.guild_permissions.manage_messages:
                 return
-            try:
-                readGuildsWithAI()
-            except:
-                pass
-            if message.guild.id in guildsWithAI:
+            if filewriter.get_guild_data(message.guild.id, "guildsWithAI") is not None:
                 try:
                     response = openai.Completion.create(engine="text-davinci-003", prompt=f"The following is a discord message. Is it explicit or spam (or not appropriate) (Yes / No)?\n'{message.content}'\n", temperature=0.1, max_tokens=10)
                 except openai.error.AuthenticationError:
@@ -255,47 +239,24 @@ async def destroy(ctx):
 @bot.hybrid_command(name="setup", description="Set up the channels, roles, and categories for isolation")
 @commands.has_permissions(administrator=True)
 async def setup(ctx: commands.Context):
-    completed = False
     if findVerificationChannel(ctx.guild) is None:
-        await ctx.guild.create_text_channel("verify-isolation", overwrites={
+        verify_overwrites = {
             ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
-        completed = True
+            ctx.guild.me: discord.PermissionOverwrite(view_channel=True)
+        }
+        mod_roles = []
+        for role in ctx.guild.roles:
+            if role.permissions.manage_messages:
+                mod_roles.append(role)
+        for role in mod_roles:
+            verify_overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+        await ctx.guild.create_text_channel("verify-isolation", overwrites=verify_overwrites)
     if discord.utils.get(ctx.guild.categories, name="Isolated") is None:
         await ctx.guild.create_category("Isolated", overwrites={
             ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
             ctx.guild.me: discord.PermissionOverwrite(view_channel=True)})
-        completed = True
     if discord.utils.get(ctx.guild.roles, name="isolated") is None:
         await ctx.guild.create_role(name="isolated", permissions=discord.Permissions(view_channel=False))
-        completed = True
-    if completed:
-        await ctx.reply("Set up isolation category and verification channel")
-    else:
-        await ctx.reply("Isolation category and verification channel already set up")
-
-# select which channel to use instead of general, stored in channels.txt
-@bot.hybrid_command(name="set-general", description="Set the general channel")
-@commands.has_permissions(administrator=True)
-async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
-    for line in open("general.txt", "r").readlines():
-        if line.startswith(str(ctx.guild.id)):
-            with open("general.txt", "r") as f:
-                lines = f.readlines()
-            with open("general.txt", "w") as f:
-                for line in lines:
-                    if line.startswith(str(ctx.guild.id)):
-                        continue
-                    f.write(line)
-            break
-    with open("general.txt", "a") as f:
-        f.write(str(ctx.guild.id) + "," + str(channel.id) + "\n")
-    await ctx.reply("Set general channel to " + channel.name)
-
-# cycle through all channels except isolated ones and remove the view_channel permission for the isolated role
-@bot.hybrid_command(name="setup_role", description="Prevent isolated users from viewing channels")
-@commands.has_permissions(administrator=True)
-async def setupRole(ctx: commands.Context):
     try:
         isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
     except:
@@ -306,6 +267,19 @@ async def setupRole(ctx: commands.Context):
             continue
         await channel.set_permissions(isolatedRole, view_channel=False)
     await ctx.reply("Set up isolated role")
+
+# select which channel to use instead of general, stored in channels.txt
+@bot.hybrid_command(name="set-general", description="Set the general channel")
+@commands.has_permissions(administrator=True)
+async def setGeneral(ctx: commands.Context, channel: discord.TextChannel):
+    if channel is None:
+        await ctx.reply("Please specify a channel")
+        return
+    filewriter.add_guild_data(ctx.guild.id, "general", channel.id)
+    if filewriter.get_guild_data(ctx.guild.id, "general") is None:
+        await ctx.reply("Failed to set general channel", ephemeral=True)
+        return
+    await ctx.reply("Set general channel to " + channel.name)
 
 async def isOk(ctx: commands.Context, member: discord.Member):
     if member.id == ctx.author.id:
@@ -348,10 +322,18 @@ async def isolateMember(ctx: commands.Context, member: discord.Member):
     isolatedRole = discord.utils.get(ctx.guild.roles, name="isolated")
     await member.add_roles(isolatedRole)
     isolationcategory = discord.utils.get(ctx.guild.categories, name="Isolated")
-    await ctx.guild.create_text_channel(f"isolated-{member.id}", category=isolationcategory, overwrites={
+    overwrites = {
         ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
         ctx.guild.me: discord.PermissionOverwrite(view_channel=True),
-        member: discord.PermissionOverwrite(view_channel=True)}, slowmode_delay=15)
+        member: discord.PermissionOverwrite(view_channel=True)
+    }
+    mod_roles = []
+    for role in ctx.guild.roles:
+        if role.permissions.manage_messages:
+            mod_roles.append(role)
+    for role in mod_roles:
+        overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+    await ctx.guild.create_text_channel(f"isolated-{member.id}", category=isolationcategory, overwrites=overwrites, slowmode_delay=15)
     for channel in ctx.guild.channels:
         if channel.name == f"isolated-{member.id}":
             await channel.send(f"{member.mention} You have been isolated. You can see messages, but all messages you send will be verified by a staff member. If you abuse this, you will be blocked from sending messages.\n\nIf you believe this is a mistake, please appeal by clicking the button below.", view=IsolatedInformation())
@@ -426,18 +408,11 @@ async def lockdownIsolated(ctx: commands.Context):
 @app_commands.checks.cooldown(1, 5, key=lambda i: i.guild.id)
 @commands.has_permissions(administrator=True)
 async def enableAI(ctx: commands.Context):
-    try:
-        readGuildsWithAI()
-    except:
-        await ctx.send("Error getting AI status", ephemeral=True)
-        return
-    if ctx.guild.id in guildsWithAI:
+    if filewriter.get_guild_data(ctx.guild.id, "guildsWithAI") is not None:
         await ctx.send("AI is already enabled", ephemeral=True)
         return
-    guildsWithAI.append(ctx.guild.id)
-    try:
-        saveGuildsWithAI()
-    except:
+    filewriter.add_guild_data(ctx.guild.id, "guildsWithAI")
+    if filewriter.get_guild_data(ctx.guild.id, "guildsWithAI") is None:
         await ctx.send("Error saving AI status", ephemeral=True)
         return
     await ctx.send("Enabled AI")
@@ -446,18 +421,11 @@ async def enableAI(ctx: commands.Context):
 @app_commands.checks.cooldown(1, 5, key=lambda i: i.guild.id)
 @commands.has_permissions(administrator=True)
 async def disableAI(ctx: commands.Context):
-    try:
-        readGuildsWithAI()
-    except:
-        await ctx.send("Error getting AI status", ephemeral=True)
+    if filewriter.get_guild_data(ctx.guild.id, "guildsWithAI") is not None:
+        await ctx.send("AI is already enabled", ephemeral=True)
         return
-    if ctx.guild.id not in guildsWithAI:
-        await ctx.send("AI is already disabled", ephemeral=True)
-        return
-    guildsWithAI.remove(ctx.guild.id)
-    try:
-        saveGuildsWithAI()
-    except:
+    filewriter.remove_guild_data(ctx.guild.id, "guildsWithAI")
+    if filewriter.get_guild_data(ctx.guild.id, "guildsWithAI") is not None:
         await ctx.send("Error saving AI status", ephemeral=True)
         return
     await ctx.send("Disabled AI")
